@@ -1,11 +1,6 @@
-# Custom Slim skeleton
+# SVG to geojson
 
-Squelette d'application Slim 4 avec dépendances prêtes à l'emploi.
-
-- Doctrine ORM
-- Templating via Twig
-- Slim Basic Auth (en place mais désactivé)
-- Application ReactJS (branche reactjs)
+Outil de conversion des SVG (ou de partie de SVG) en geoJSON
 
 ## Install the Application
 
@@ -13,8 +8,7 @@ Squelette d'application Slim 4 avec dépendances prêtes à l'emploi.
 * Installer les dépendances php (`composer install`)
 * Point your virtual host document root to your new application's `public/` directory.
 * Ensure `logs/` is web writable.
-* Installer la base de données
-* 
+
 
 ## Developpement
 To run the application in development, you can run these commands 
