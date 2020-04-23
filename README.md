@@ -13,6 +13,6 @@ Outil de conversion des SVG (ou de partie de SVG) en geoJSON
 ## Developpement
 To run the application in development, you can run these commands 
 
-** Lancer le serveur php **
+**Lancer le serveur php**
 ```composer start```
 

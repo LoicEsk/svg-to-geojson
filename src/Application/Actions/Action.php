@@ -9,9 +9,12 @@ use Psr\Http\Message\ServerRequestInterface as Request;
 use Psr\Log\LoggerInterface;
 use Slim\Exception\HttpBadRequestException;
 use Slim\Exception\HttpNotFoundException;
+use Psr\Container\ContainerInterface;
+use Doctrine\ORM\EntityManager;
 
 abstract class Action
 {
+    protected $container;
     /**
      * @var LoggerInterface
      */
@@ -32,12 +35,16 @@ abstract class Action
      */
     protected $args;
 
+    protected $userLogin;
+
     /**
      * @param LoggerInterface $logger
      */
-    public function __construct(LoggerInterface $logger)
+    public function __construct(ContainerInterface $container, LoggerInterface $logger, EntityManager $em = null)
     {
         $this->logger = $logger;
+        $this->container = $container;
+        $this->em = $em;
     }
 
     /**
@@ -53,6 +60,8 @@ abstract class Action
         $this->request = $request;
         $this->response = $response;
         $this->args = $args;
+
+        $this->userLogin = $request->getAttribute('user');
 
         try {
             return $this->action();

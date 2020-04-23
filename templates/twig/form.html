@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <form action="/convert" method="POST">
+        <div class="form-group">
+            <label for="svg-code">Votre code SVG :</label>
+            <textarea name="svg-code" id="svg-code" rows="10" class="form-control">{{ codeSVG }}</textarea>
+        </div>
+        <button type="submit" class="btn btn-primary">Convertir</button>
+    </form>
+    {% block result %}
+    {% endblock %}
+{% endblock %}

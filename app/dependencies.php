@@ -31,32 +31,32 @@ return function (ContainerBuilder $containerBuilder) {
             return $logger;
         },
 
-        EntityManager::class => function (ContainerInterface $container): EntityManager {
-            $settings = $container->get('settings');
+        // EntityManager::class => function (ContainerInterface $container): EntityManager {
+        //     $settings = $container->get('settings');
             
-            $config = Setup::createAnnotationMetadataConfiguration(
-                $settings['doctrine']['metadata_dirs'],
-                $settings['doctrine']['dev_mode']
-            );
+        //     $config = Setup::createAnnotationMetadataConfiguration(
+        //         $settings['doctrine']['metadata_dirs'],
+        //         $settings['doctrine']['dev_mode']
+        //     );
         
-            $config->setMetadataDriverImpl(
-                new AnnotationDriver(
-                    new AnnotationReader,
-                    $settings['doctrine']['metadata_dirs']
-                )
-            );
+        //     $config->setMetadataDriverImpl(
+        //         new AnnotationDriver(
+        //             new AnnotationReader,
+        //             $settings['doctrine']['metadata_dirs']
+        //         )
+        //     );
         
-            $config->setMetadataCacheImpl(
-                new FilesystemCache(
-                    $settings['doctrine']['cache_dir']
-                )
-            );
+        //     $config->setMetadataCacheImpl(
+        //         new FilesystemCache(
+        //             $settings['doctrine']['cache_dir']
+        //         )
+        //     );
         
-            return EntityManager::create(
-                $settings['doctrine']['connection'],
-                $config
-            );
-        },
+        //     return EntityManager::create(
+        //         $settings['doctrine']['connection'],
+        //         $config
+        //     );
+        // },
 
         'view' => function( ContainerInterface $container ) {
             $settings = $container->get('settings');
