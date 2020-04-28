@@ -1,15 +1,23 @@
 {% extends "form.html" %}
 
 {% block result %}
+
+    {% for alert in alerts %}
+    <div class="alert alert-{{ alert.type }}" role="alert">
+        {{ alert.text }}
+    </div>
+    {% endfor %}
+
     <div class="row mt-5">
         <div class="col-md-6">
             <h2 class="h3">Le geo-json :</h2>
             <form action="">
-                <textarea name="" id="" rows="10" class="form-control" disabled>cdfd{{ codeGEOJSON }}</textarea>
+                <textarea name="" id="" rows="10" class="form-control" disabled>{{ codeGEOJSON }}</textarea>
             </form>
         </div>
         <div class="col-md-6">
             <h2 class="h3">La carte :</h2>
         </div>
     </div>
+
 {% endblock %}
