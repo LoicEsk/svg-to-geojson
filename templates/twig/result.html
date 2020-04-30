@@ -12,11 +12,35 @@
         <div class="col-md-6">
             <h2 class="h3">Le geo-json :</h2>
             <form action="">
-                <textarea name="" id="" rows="10" class="form-control" disabled>{{ codeGEOJSON }}</textarea>
+                <textarea name="" id="codeGEOJSON" rows="10" class="form-control" disabled>{{ codeGEOJSON }}</textarea>
             </form>
         </div>
         <div class="col-md-6">
             <h2 class="h3">La carte :</h2>
+            <div id="rendu-carte" style="height: 500px;"></div>
+            <script>
+              var map = L.map('rendu-carte', {
+              		crs: L.extend({}, L.CRS.Simple, {
+                    transformation: new L.Transformation(1, 0,
+                      // -1, // works like expected
+                      1, // image travels while zooming
+                      0)
+                  }),
+                  minZoom: -5
+              });
+              var bounds = [[0,0], [1000,1000]];
+              map.setView( [ 500,500 ], 1);
+              map.fitBounds(bounds);
+              var code = JSON.parse($('#codeGEOJSON').val());
+              console.log(code);
+              L.geoJSON(code, {
+                  style: {
+                    "color": "red",
+                    "weight": 5,
+                    "opacity": 0.65
+                  }
+              }).addTo(map);
+            </script>
         </div>
     </div>
 

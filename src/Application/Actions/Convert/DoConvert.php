@@ -28,12 +28,102 @@ class DoConvert extends Action
 
         $geojson = [];
         $paths = [];
-        if( preg_match_all( '/<path .*d=["\'](.*)["\'].*>/miU', $codeSVG, $paths ) ) {
-            foreach( $paths[1] as $path ) {
-                $geojson[] = $this->decodeSvgPath( $path );
+        switch($_POST['typeConversion']){
+          case 'convertirSvg':
+            if( preg_match_all( '/<polygon .*points=["\'](.*)["\'].*>/miU', $codeSVG, $polygons ) ) {
+              if( preg_match_all( '/<a .*href=["\'](.*)["\'].*>/miU', $codeSVG, $liens ) ) {
+                  $listePolygons = $polygons[1];
+                  $listeLiens = $liens[1];
+                  for($i = 0;$i<sizeof($listePolygons);$i++){
+                    if(array_key_exists($i,$listeLiens)){
+                      $geojson[] = [
+                        "type" => "Feature",
+                        "properties" => ["url"=>$listeLiens[$i]],
+                        "geometry"=> [
+                          "type"=> "MultiPolygon",
+                          "coordinates"=>[
+                          $this->decodeSvgPolygon( $listePolygons[$i] )]
+                        ]
+                      ];
+                    }
+                  }
+              } else {
+                $listePolygons = $polygons[1];
+                for($i = 0;$i<sizeof($listePolygons);$i++){
+                  $geojson[] = [
+                    "type" => "Feature",
+                    "geometry"=> [
+                      "type"=> "MultiPolygon",
+                      "coordinates"=>[
+                      $this->decodeSvgPolygon( $listePolygons[$i] )]
+                    ]
+                  ];
+                }
+              }
             }
+
+            if( preg_match_all( '/<path .* d=["\'](.*)["\'].*>/miU', $codeSVG, $paths ) ){
+              if( preg_match_all( '/<a .*href=["\'](.*)["\'].*>/miU', $codeSVG, $liens ) ) {
+                  $listePaths = $paths[1];
+                  $listeLiens = $liens[1];
+                  for($i = 0;$i<sizeof($listePaths);$i++){
+                    if(array_key_exists($i,$listeLiens)){
+                      $geojson[] = [
+                        "type" => "Feature",
+                        "properties" => ["url"=>$listeLiens[$i]],
+                        "geometry"=> [
+                          "type"=> "MultiPolygon",
+                          "coordinates"=>[
+                          $this->decodeSvgPath( $listePaths[$i] )]
+                        ]
+                      ];
+                    }
+                  }
+              } else {
+                $listePaths = $paths[1];
+                for($i = 0;$i<sizeof($listePaths);$i++){
+                  $geojson[] = [
+                    "type" => "Feature",
+                    "geometry"=> [
+                      "type"=> "MultiPolygon",
+                      "coordinates"=>[
+                      $this->decodeSvgPath( $listePaths[$i] )]
+                    ]
+                  ];
+                }
+              }
+            }
+
+            break;
+          case 'convertirPath':
+            if( preg_match_all( '/<path .*d=["\'](.*)["\'].*>/miU', $codeSVG, $paths ) ) {
+                foreach( $paths[1] as $path ) {
+                    $geojson[] = $this->decodeSvgPath( $path );
+                }
+            }
+            break;
+          case 'convertirClass':
+            if( preg_match_all( '/<g .*class=["\'](.*)["\'].*>/miU', $codeSVG, $centre ) ) {
+              $class = $centre[1];
+              if( preg_match_all( '/<polygon .*points=["\'](.*)["\'].*>/miU', $codeSVG, $polygons ) ) {
+                    $listePolygons = $polygons[1];
+                    for($i = 0;$i<sizeof($listePolygons);$i++){
+                      $geojson[] = [
+                        "type" => "Feature",
+                        "properties" => ["url"=>'','class'=>$class],
+                        "geometry"=> [
+                          "type"=> "MultiPolygon",
+                          "coordinates"=>[
+                          $this->decodeSvgPolygon( $listePolygons[$i] )]
+                        ]
+                      ];
+                }
+              }
+            }
+            break;
         }
-        
+
+
         ob_flush();
         return $this->container->get('view')->render($this->response, 'result.html', [
             'title'     => "Résultat",
@@ -43,37 +133,149 @@ class DoConvert extends Action
         ]);
     }
 
-    protected function decodeSvgPath( $code ) {
+    protected function decodeSvgPolygon( $code ) {
+        $points = [];
+        if(!strpos(',',$code)){
+          $codes = explode( ' ', $code );
+          for($i = 0; $i < sizeof($codes); $i+=2){
+            array_push($points, [floatval($codes[$i]),floatval($codes[$i+1])]);
+          }
+        } else {
+          $codes = explode( ' ', $code );
+          $codes = array_map( function( $c ){
+              return explode( ',', $c );
+          }, $codes );
+          // echo '<pre>'; var_dump( $codes ); echo '</pre>';
+          foreach($codes as $coordinates){
+            array_push($points,[ floatval($coordinates[0]),floatval($coordinates[1])]);
+          }
+        }
+
+        $points = [$points];
+        // echo '<pre>'; var_dump( $points ); echo '</pre>';
+        return $points;
+    }
+
+    protected function decodeSvgPath($code){
+        $codes = preg_replace( '/[a-z]/i', ';$0:', $code );
+        $codes = explode( ';', $codes );
+        $codes = array_map( function( $c ){
+            return explode( ':', $c );
+        }, $codes );
+        unset($codes[0]);
+        $codes = array_values($codes);
+        $currentP = [ 0 , 0 ];
+        for($i = 0;$i < sizeof($codes);$i++){
+          $currentCode = $codes[$i];
+          $instructions = $currentCode[1];
+          $instructions = preg_replace( '/(-)/i', ';$0', $instructions );
+          $instructions = preg_split( "/(;|,)/", $instructions );
+          $codes[$i][1] = $instructions;
+          // echo '<pre>'; var_dump( $codes[$i] ); echo '</pre>';
+          switch( $codes[0] ) {
+              case 'M':
+                foreach($currentCode[1] as $key=>$coordonnates){
+                  if($key % 2 == 0){
+                    $currentP[1] = $coordonnates;
+                  } else {
+                    $currentP[0] = $coordonnates;
+                  }
+                }
+              break;
+              case 'm' :
+                foreach($currentCode[1] as $key=>$coordonnates){
+                  if($key % 2 == 0){
+                    $currentP[1] += $coordonnates;
+                  } else {
+                    $currentP[0] += $coordonnates;
+                  }
+                }
+              break;
+              case 'L':
+                //déplacement avec tracé en absolu (x,y)
+              break;
+              case 'l':
+                // déplacement avec tracé en relatif (x,y)
+              break;
+              case 'H':
+                //déplacement horizontal avec tracé en absolu (x)
+                break;
+              case 'h':
+                //déplacement horizontal avec tracé en relatif (x)
+                break;
+              case 'V':
+                //déplacement vertical avec tracé en absolu (y)
+                break;
+              case 'v':
+                //déplacement vertical avec tracé en relatif (y)
+                break;
+              case 'Z': case 'z':
+                //en fin de tracé, permet de tracer le trait depuis la
+                //position actuelle jusqu'au tout premier point
+              default :
+                  $this->alerts[] = [
+                      'type' => 'danger',
+                      'text' => "Un tracé n'a pas pu être converti"
+                  ];
+          }
+        }
+        // foreach($codes as $instructions){
+        //   $instructions[1] = explode( ',', $instructions[1] );
+        //   // echo '<pre>'; var_dump( $codes ); echo '</pre>';
+        // }
+        // echo '<pre>'; var_dump( $codes ); echo '</pre>';
+
+    }
+
+    protected function decodeSvgPathOLD( $code ) {
+      // echo '<pre>'; var_dump( $code ); echo '</pre>';
         $codeChaine = preg_replace( '/[a-z]/i', ';$0:', $code );
         $codes = explode( ';', $codeChaine );
         $codes = array_map( function( $c ){
             return explode( ':', $c );
         }, $codes );
-        //  echo '<pre>'; var_dump( $codes ); echo '</pre>'; 
+         // echo '<pre>'; var_dump( $codes ); echo '</pre>';
         $points = [];
         $currentP = [ 0, 0 ];
         foreach( $codes  as $instruction ) {
+          // echo '<pre>'; var_dump( $instruction ); echo '</pre>';
             $values = [];
             if( count( $instruction ) === 2 ) {
                 if( preg_match_all( '/[-+]?[0-9]*\.?[0-9]*/', $instruction[1], $values ) ) {
                     // var_dump( $values );
+                    echo '<pre>'; var_dump($instruction[0]) ; var_dump( $values ); echo '</pre>';
                     switch( $instruction[0] ) {
                         case 'M':
-                            // déplacement sans tracé en absolu
-                            $currentP[ 0 ] = $values[ 0 ][ 0 ];
-                            $currentP[ 1 ] = $values[ 0 ][ 1 ];
+                          // déplacement sans tracé en absolu (x,y)
+                          $currentP[ 0 ] = $values[ 0 ][ 0 ];
+                          $currentP[ 1 ] = $values[ 0 ][ 1 ];
                         break;
                         case 'm' :
-                            // déplacement sans tracé en relatif
-                            $currentP[ 0 ] += $values[ 0 ];
-                            $currentP[ 1 ] += $values[ 1 ];
+                          // déplacement sans tracé en relatif (x,y)
+                          $currentP[ 0 ] += $values[ 0 ];
+                          $currentP[ 1 ] += $values[ 1 ];
                         break;
-                        // case 'L':
-                        //     //déplacement avec tracé en absolu
-                        // break;
-                        // case 'l':
-                        //     // déplacement avec tracé en relatif
-                        // break;
+                        case 'L':
+                          //déplacement avec tracé en absolu (x,y)
+                        break;
+                        case 'l':
+                          // déplacement avec tracé en relatif (x,y)
+                        break;
+                        case 'H':
+                          //déplacement horizontal avec tracé en absolu (x)
+                          break;
+                        case 'h':
+                          //déplacement horizontal avec tracé en relatif (x)
+                          break;
+                        case 'V':
+                          //déplacement vertical avec tracé en absolu (y)
+                          break;
+                        case 'v':
+                          //déplacement vertical avec tracé en relatif (y)
+                          break;
+                        case 'Z': case 'z':
+                          //en fin de tracé, permet de tracer le trait depuis la
+                          //position actuelle jusqu'au tout premier point
                         default :
                             $this->alerts[] = [
                                 'type' => 'danger',

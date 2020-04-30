@@ -6,7 +6,9 @@
             <label for="svg-code">Votre code SVG :</label>
             <textarea name="svg-code" id="svg-code" rows="10" class="form-control">{{ codeSVG }}</textarea>
         </div>
-        <button type="submit" class="btn btn-primary">Convertir</button>
+        <button type="submit" class="btn btn-primary" name="typeConversion" value="convertirPath">Convertir un path</button>
+        <button type="submit" class="btn btn-primary" name="typeConversion" value="convertirSvg">Convertir un svg</button>
+        <button type="submit" class="btn btn-primary" name="typeConversion" value="convertirClass">Conversion spéciale (avec classe)</button>
     </form>
     {% block result %}
     {% endblock %}
