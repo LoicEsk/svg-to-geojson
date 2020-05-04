@@ -30,15 +30,26 @@ class DoConvert extends Action
         $paths = [];
         switch($_POST['typeConversion']){
           case 'convertirSvg':
-            if( preg_match_all( '/<polygon .*points=["\'](.*)["\'].*>/miU', $codeSVG, $polygons ) ) {
+            if( preg_match_all( '/<polygon .*id=["\'](.*)["\'] .*points=["\'](.*)["\'].*>/miU', $codeSVG, $polygons ) ) {
               if( preg_match_all( '/<a .*href=["\'](.*)["\'].*>/miU', $codeSVG, $liens ) ) {
-                  $listePolygons = $polygons[1];
+                  $listePolygons = $polygons[2];
+                  $listeIDs = $polygons[1];
                   $listeLiens = $liens[1];
                   for($i = 0;$i<sizeof($listePolygons);$i++){
-                    if(array_key_exists($i,$listeLiens)){
+                    if(array_key_exists($i,$listeLiens) && array_key_exists($i,$listeIDs)){
                       $geojson[] = [
                         "type" => "Feature",
-                        "properties" => ["url"=>$listeLiens[$i]],
+                        "properties" => ["url"=>$listeLiens[$i],"id"=>$listeIDs[$i]],
+                        "geometry"=> [
+                          "type"=> "MultiPolygon",
+                          "coordinates"=>[
+                          $this->decodeSvgPolygon( $listePolygons[$i] )]
+                        ]
+                      ];
+                    } else {
+                      $geojson[] = [
+                        "type" => "Feature",
+                        "properties" => ["url"=>'',"id"=>''],
                         "geometry"=> [
                           "type"=> "MultiPolygon",
                           "coordinates"=>[
@@ -48,16 +59,28 @@ class DoConvert extends Action
                     }
                   }
               } else {
-                $listePolygons = $polygons[1];
+                $listePolygons = $polygons[2];
                 for($i = 0;$i<sizeof($listePolygons);$i++){
-                  $geojson[] = [
-                    "type" => "Feature",
-                    "geometry"=> [
-                      "type"=> "MultiPolygon",
-                      "coordinates"=>[
-                      $this->decodeSvgPolygon( $listePolygons[$i] )]
-                    ]
-                  ];
+                  if(array_key_exists($i,$listeIDs)){
+                    $geojson[] = [
+                      "type" => "Feature",
+                      "properties" => ["id"=>$listeIDs[$i]],
+                      "geometry"=> [
+                        "type"=> "MultiPolygon",
+                        "coordinates"=>[
+                        $this->decodeSvgPolygon( $listePolygons[$i] )]
+                      ]
+                    ];
+                  } else {
+                    $geojson[] = [
+                      "type" => "Feature",
+                      "geometry"=> [
+                        "type"=> "MultiPolygon",
+                        "coordinates"=>[
+                        $this->decodeSvgPolygon( $listePolygons[$i] )]
+                      ]
+                    ];
+                  }
                 }
               }
             }
@@ -165,58 +188,211 @@ class DoConvert extends Action
         unset($codes[0]);
         $codes = array_values($codes);
         $currentP = [ 0 , 0 ];
+        $firstP = [0, 0];
+        $points = [];
         for($i = 0;$i < sizeof($codes);$i++){
           $currentCode = $codes[$i];
-          $instructions = $currentCode[1];
-          $instructions = preg_replace( '/(-)/i', ';$0', $instructions );
-          $instructions = preg_split( "/(;|,)/", $instructions );
-          $codes[$i][1] = $instructions;
+          $instruction = $currentCode[0];
+          $coordonnes = $currentCode[1];
+          $coordonnes = preg_replace( '/(-)/i', ';$0', $coordonnes );
+          $coordonnes = preg_split( "/(;|,)/", $coordonnes );
+          $codes[$i][1] = $coordonnes;
           // echo '<pre>'; var_dump( $codes[$i] ); echo '</pre>';
-          switch( $codes[0] ) {
+          echo '<pre> "INSTRUCTIONS : "'; var_dump( $instruction ); echo '</pre>';
+          switch( $instruction ) {
               case 'M':
-                foreach($currentCode[1] as $key=>$coordonnates){
-                  if($key % 2 == 0){
-                    $currentP[1] = $coordonnates;
-                  } else {
-                    $currentP[0] = $coordonnates;
+                foreach($codes[$i][1] as $key=>$coordonnates){
+                  $coordonnates = floatval($coordonnates);
+                  if($coordonnates == ""){
+                    continue;
                   }
+                  echo '<pre> "COORDONNEES : "'; var_dump( $coordonnates ); echo '</pre>';
+                  if($key % 2 == 0){
+                    $currentP[0] = $coordonnates;
+                  } else {
+                    $currentP[1] = $coordonnates;
+                  }
+                  array_push($points, $currentP);
                 }
               break;
               case 'm' :
-                foreach($currentCode[1] as $key=>$coordonnates){
-                  if($key % 2 == 0){
-                    $currentP[1] += $coordonnates;
-                  } else {
-                    $currentP[0] += $coordonnates;
+                foreach($codes[$i][1] as $key=>$coordonnates){
+                  $coordonnates = floatval($coordonnates);
+                  if($coordonnates == ""){
+                    continue;
                   }
+                  echo '<pre> "COORDONNEES : "'; var_dump( $coordonnates ); echo '</pre>';
+                  if($key % 2 == 0){
+                    $currentP[0] += $coordonnates;
+                  } else {
+                    $currentP[1] += $coordonnates;
+                  }
+                  array_push($points, $currentP);
                 }
               break;
               case 'L':
                 //déplacement avec tracé en absolu (x,y)
+                foreach($codes[$i][1] as $key=>$coordonnates){
+                  $coordonnates = floatval($coordonnates);
+                  if($coordonnates == ""){
+                    continue;
+                  }
+                  echo '<pre> "COORDONNEES : "'; var_dump( $coordonnates ); echo '</pre>';
+                  if($key % 2 == 0){
+                    $currentP[0] = $coordonnates;
+                  } else {
+                    $currentP[1] = $coordonnates;
+                  }
+                  array_push($points, $currentP);
+                }
               break;
               case 'l':
                 // déplacement avec tracé en relatif (x,y)
+                foreach($codes[$i][1] as $key=>$coordonnates){
+                  $coordonnates = floatval($coordonnates);
+                  if($coordonnates == ""){
+                    continue;
+                  }
+                  echo '<pre> "COORDONNEES : "'; var_dump( $coordonnates ); echo '</pre>';
+                  if($key % 2 == 0){
+                    $currentP[0] += $coordonnates;
+                  } else {
+                    $currentP[1] += $coordonnates;
+                  }
+                  array_push($points, $currentP);
+                }
               break;
               case 'H':
                 //déplacement horizontal avec tracé en absolu (x)
+                foreach($codes[$i][1] as $key=>$coordonnates){
+                  $coordonnates = floatval($coordonnates);
+                  if($coordonnates == ""){
+                    continue;
+                  }
+                  echo '<pre> "COORDONNEES : "'; var_dump( $coordonnates ); echo '</pre>';
+                  $currentP[0] = $coordonnates;
+                  array_push($points, $currentP);
+                }
                 break;
               case 'h':
                 //déplacement horizontal avec tracé en relatif (x)
+                foreach($codes[$i][1] as $key=>$coordonnates){
+                  $coordonnates = floatval($coordonnates);
+                  if($coordonnates == ""){
+                    continue;
+                  }
+                  echo '<pre> "COORDONNEES : "'; var_dump( $coordonnates ); echo '</pre>';
+                  $currentP[0] += $coordonnates;
+                  array_push($points, $currentP);
+                }
                 break;
               case 'V':
                 //déplacement vertical avec tracé en absolu (y)
+                foreach($codes[$i][1] as $key=>$coordonnates){
+                  $coordonnates = floatval($coordonnates);
+                  if($coordonnates == ""){
+                    continue;
+                  }
+                  echo '<pre> "COORDONNEES : "'; var_dump( $coordonnates ); echo '</pre>';
+                  $currentP[1] = $coordonnates;
+                  array_push($points, $currentP);
+                }
                 break;
               case 'v':
                 //déplacement vertical avec tracé en relatif (y)
+                foreach($codes[$i][1] as $key=>$coordonnates){
+                  $coordonnates = floatval($coordonnates);
+                  if($coordonnates == ""){
+                    continue;
+                  }
+                  echo '<pre> "COORDONNEES : "'; var_dump( $coordonnates ); echo '</pre>';
+                  $currentP[1] += $coordonnates;
+                  array_push($points, $currentP);
+                }
                 break;
               case 'Z': case 'z':
                 //en fin de tracé, permet de tracer le trait depuis la
                 //position actuelle jusqu'au tout premier point
+                foreach($codes[$i][1] as $key=>$coordonnates){
+                    $currentP[0] = $firstP[0];
+                    $currentP[1] = $firstP[1];
+                    array_push($points, $currentP);
+                }
+                break;
+              case 's':
+                $coordonnatesOfInstruction = $codes[$i][1];
+                for($j = 0;$j < sizeof($coordonnatesOfInstruction);$j++){
+                  if($coordonnatesOfInstruction[$j] == ""){
+                    continue;
+                  }
+                  $coordonnatesOfInstruction[$j] = floatval($coordonnatesOfInstruction[$j]);
+                  echo '<pre> "COORDONNEES : "'; var_dump( $coordonnatesOfInstruction[$j] ); echo '</pre>';
+                  if($j == 2 || ($j % 4 == 2)){
+                    $currentP[0] += $coordonnatesOfInstruction[$j];
+                  } else if($j == 3 || ($j % 4 == 3)){
+                    $currentP[1] += $coordonnatesOfInstruction[$j];
+                  }
+                  array_push($points, $currentP);
+                }
+                break;
+              case 'S':
+                $coordonnatesOfInstruction = $codes[$i][1];
+                for($j = 0;$j < sizeof($coordonnatesOfInstruction);$j++){
+                  if($coordonnatesOfInstruction[$j] == ""){
+                    continue;
+                  }
+                  $coordonnatesOfInstruction[$j] = floatval($coordonnatesOfInstruction[$j]);
+                  echo '<pre> "COORDONNEES : "'; var_dump( $coordonnatesOfInstruction[$j] ); echo '</pre>';
+                  if($j == 2 || ($j % 4 == 2)){
+                    $currentP[0] = $coordonnatesOfInstruction[$j];
+                  } else if($j == 3 || ($j % 4 == 3)){
+                    $currentP[1] = $coordonnatesOfInstruction[$j];
+                  }
+                  array_push($points, $currentP);
+                }
+                break;
+              case 'c':
+                $coordonnatesOfInstruction = $codes[$i][1];
+                for($j = 0;$j < sizeof($coordonnatesOfInstruction);$j++){
+                  if($coordonnatesOfInstruction[$j] == ""){
+                    continue;
+                  }
+                  $coordonnatesOfInstruction[$j] = floatval($coordonnatesOfInstruction[$j]);
+                  echo '<pre> "COORDONNEES : "'; var_dump( $coordonnatesOfInstruction[$j] ); echo '</pre>';
+                  if($j == 5 || ($j % 7 == 5)){
+                    $currentP[0] += $coordonnatesOfInstruction[$j];
+                  } else if($j == 6 || ($j % 5 == 6)){
+                    $currentP[1] += $coordonnatesOfInstruction[$j];
+                  }
+                  array_push($points, $currentP);
+                }
+                break;
+              case 'C':
+                $coordonnatesOfInstruction = $codes[$i][1];
+                for($j = 0;$j < sizeof($coordonnatesOfInstruction);$j++){
+                  if($coordonnatesOfInstruction[$j] == ""){
+                    continue;
+                  }
+                  $coordonnatesOfInstruction[$j] = floatval($coordonnatesOfInstruction[$j]);
+                  echo '<pre> "COORDONNEES : "'; var_dump( $coordonnatesOfInstruction[$j] ); echo '</pre>';
+                  if($j == 5 || ($j % 7 == 5)){
+                    $currentP[0] = $coordonnatesOfInstruction[$j];
+                  } else if($j == 6 || ($j % 5 == 6)){
+                    $currentP[1] = $coordonnatesOfInstruction[$j];
+                  }
+                  array_push($points, $currentP);
+                }
+                break;
               default :
                   $this->alerts[] = [
                       'type' => 'danger',
                       'text' => "Un tracé n'a pas pu être converti"
                   ];
+          }
+          $points[] = $currentP;
+          if($i == 0){
+            $firstP[0] = $currentP[0];
+            $firstP[1] = $currentP[1];
           }
         }
         // foreach($codes as $instructions){
@@ -224,7 +400,8 @@ class DoConvert extends Action
         //   // echo '<pre>'; var_dump( $codes ); echo '</pre>';
         // }
         // echo '<pre>'; var_dump( $codes ); echo '</pre>';
-
+        $points = [$points];
+        return $points;
     }
 
     protected function decodeSvgPathOLD( $code ) {
